@@ -4,34 +4,31 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: self-hosted
-
+    
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy App
+      - name: Build Docker image
         run: |
-          echo "📌 Entering project directory"
-          cd /home/ubuntu/serverless/app/execution/execution
+          docker build -t execution:latest -f /home/ubuntu/serverless/app/execution/execution
 
-          echo "⬇️ Pulling latest code"
-          git pull origin master
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f /home/ubuntu/serverless/app/execution/execution/k8s/rbac.yaml
+          kubectl apply -f /home/ubuntu/serverless/app/execution/execution/k8s/redis.yaml
+          kubectl apply -f /home/ubuntu/serverless/app/execution/execution/k8s/gateway.yaml
 
-          echo "⚙️ Building Go App"
-          go build -o server .
+      - name: Restart deployments (to use new image)
+        run: |
+          kubectl rollout restart deployment --all || true
 
-          echo "🔪 Killing old server if any"
-          pkill server || true
-
-          echo "🚀 Starting new server"
-          nohup ./server > server.log 2>&1 &
-
-          echo "📜 Showing running process"
-          pgrep -l server
-
-          echo "🎉 Done! Deployment Successful"
-
+      - name: Check status
+        run: |
+          kubectl get pods
+          kubectl get services
