@@ -24,7 +24,7 @@ spec:
       serviceAccountName: execution-sa
       containers:
         - name: execution
-          image: localhost/execution:latest
+          image: execution:latest
           imagePullPolicy: Never
           ports:
             - containerPort: 80
