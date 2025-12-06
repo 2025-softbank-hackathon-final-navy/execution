@@ -16,7 +16,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t execution:latest -f /home/ubuntu/serverless/app/execution/execution .
+          docker build -t execution:latest -f /home/ubuntu/serverless/app/execution/execution/Dockerfile .
 
       - name: Deploy to Kubernetes
         run: |
