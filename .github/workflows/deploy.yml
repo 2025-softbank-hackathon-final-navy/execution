@@ -16,7 +16,7 @@ jobs:
       - name: Deploy App
         run: |
           echo "📌 Entering project directory"
-          cd /home/ec2-user/execution
+          cd /home/ubuntu/serverless/app/execution/execution
 
           echo "⬇️ Pulling latest code"
           git pull origin master
