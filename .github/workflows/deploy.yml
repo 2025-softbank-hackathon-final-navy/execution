@@ -1,23 +1,37 @@
-name: Sync Code to EC2
+name: Deploy to EC2
 
 on:
   push:
     branches:
       - master
-  workflow_dispatch:  # 수동 실행 가능
 
 jobs:
-  sync:
+  deploy:
     runs-on: self-hosted
-    
+
     steps:
-      - name: Checkout code
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Show synced files
+      - name: Deploy App
         run: |
-          echo "✅ Code synced to EC2!"
-          echo "📁 Location: $(pwd)"
-          echo ""
-          echo "Files:"
-          ls -la
+          echo "📌 Entering project directory"
+          cd /home/ec2-user/execution
+
+          echo "⬇️ Pulling latest code"
+          git pull origin master
+
+          echo "⚙️ Building Go App"
+          go build -o server .
+
+          echo "🔪 Killing old server if any"
+          pkill server || true
+
+          echo "🚀 Starting new server"
+          nohup ./server > server.log 2>&1 &
+
+          echo "📜 Showing running process"
+          pgrep -l server
+
+          echo "🎉 Done! Deployment Successful"
+
