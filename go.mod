@@ -1,4 +1,4 @@
-module execution
+module github.com/2025-softbank-hackathon-final-navy/execution
 
 go 1.25.5
 
