@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: gateway
+  name: execution
   namespace: default
 spec:
   # 일단 3개로 시작
   replicas: 3
   selector:
     matchLabels:
-      app: gateway-server
+      app: execution-server
   template:
     metadata:
       labels:
-        app: gateway-server
+        app: execution-server
     spec:
       tolerations:
         - key: node-role.kubernetes.io/control-plane
@@ -21,10 +21,10 @@ spec:
         - key: node-role.kubernetes.io/master
           operator: Exists
           effect: NoSchedule
-      serviceAccountName: gateway-sa
+      serviceAccountName: execution-sa
       containers:
-        - name: gateway
-          image: localhost/gateway:latest
+        - name: execution
+          image: localhost/execution:latest
           imagePullPolicy: Never
           ports:
             - containerPort: 80
@@ -39,13 +39,13 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: gateway-hpa
+  name: execution-hpa
   namespace: default
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: gateway
+    name: execution
   minReplicas: 3
   maxReplicas: 20
   metrics:
@@ -59,13 +59,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: gateway-service
+  name: execution-service
   namespace: default
 spec:
   # type: LoadBalancer
   type: NodePort
   selector:
-    app: gateway-server
+    app: execution-server
   ports:
     - protocol: TCP
       port: 80
