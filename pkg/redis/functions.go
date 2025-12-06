@@ -10,7 +10,10 @@ import (
 	"github.com/2025-softbank-hackathon-final-navy/execution/config"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/k8s"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/types"
+	"github.com/redis/go-redis/v9"
 )
+
+const FunctionExecutionQueue = "function:execution:queue"
 
 func UpdateLastActivity(funcID string) {
 	ctx := context.Background()
@@ -59,4 +62,38 @@ func IncRequestAndScale(funcID string) {
 
 func DecRequest(funcID string) {
 	Rdb.Decr(context.Background(), fmt.Sprintf("active:%s", funcID))
+}
+
+func FetchExecutionRequest(ctx context.Context) (*types.ExecutionRequest, error) {
+	result, err := Rdb.BRPop(ctx, 0, FunctionExecutionQueue).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	// result is a []string with the first element being the key and the second the value
+	if len(result) != 2 {
+		return nil, fmt.Errorf("invalid result from BRPop: %v", result)
+	}
+
+	var req types.ExecutionRequest
+	if err := json.Unmarshal([]byte(result[1]), &req); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal request: %w", err)
+	}
+
+	return &req, nil
+}
+
+func PublishExecutionResult(ctx context.Context, requestID string, result *types.ExecutionResult) error {
+	channel := fmt.Sprintf("result:%s", requestID)
+	payload, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal result: %w", err)
+	}
+
+	return Rdb.Publish(ctx, channel, payload).Err()
+}
+
+func SubscribeToResult(ctx context.Context, requestID string) *redis.PubSub {
+	channel := fmt.Sprintf("result:%s", requestID)
+	return Rdb.Subscribe(ctx, channel)
 }
