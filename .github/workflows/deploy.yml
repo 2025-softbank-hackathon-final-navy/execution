@@ -1,0 +1,23 @@
+name: Sync Code to EC2
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  sync:
+    runs-on: self-hosted
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Show synced files
+        run: |
+          echo "✅ Code synced to EC2!"
+          echo "📁 Location: $(pwd)"
+          echo ""
+          echo "Files:"
+          ls -la
