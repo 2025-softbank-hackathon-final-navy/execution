@@ -53,26 +53,26 @@ func processRequest(ctx context.Context, req *types.ExecutionRequest) {
 		meta, err := redis.GetFunctionFromRedis(req.FunctionID)
 		if err != nil {
 			log.Printf("Error getting function metadata for %s from Redis: %v", req.FunctionID, err)
-			publishErrorResult(ctx, req.RequestID, req.FunctionID, err)
+			publishErrorResult(ctx, req.RequestID, req.FunctionID, err, executionType)
 			return
 		}
 		functionReq := types.FunctionRequest{Name: meta.Name, Code: meta.Code, Type: meta.Type, Request: meta.Request}
 		if err := k8s.CreateK8sResources(req.FunctionID, functionReq); err != nil {
 			log.Printf("Error creating K8s resources for function %s: %v", req.FunctionID, err)
-			publishErrorResult(ctx, req.RequestID, req.FunctionID, err)
+			publishErrorResult(ctx, req.RequestID, req.FunctionID, err, executionType)
 			return
 		}
 		if !k8s.WaitForPodReady(req.FunctionID) {
 			log.Printf("Timeout waiting for pod %s to be ready", req.FunctionID)
-			publishErrorResult(ctx, req.RequestID, req.FunctionID, fmt.Errorf("timeout waiting for pod to be ready"))
+			publishErrorResult(ctx, req.RequestID, req.FunctionID, fmt.Errorf("timeout waiting for pod to be ready"), executionType)
 			return
 		}
 	} else if err != nil {
 		log.Printf("Error checking K8s service for function %s: %v", req.FunctionID, err)
-		publishErrorResult(ctx, req.RequestID, req.FunctionID, err)
+		publishErrorResult(ctx, req.RequestID, req.FunctionID, err, executionType)
 		return
 	} else {
-		executionType = "hot" // Service already exists, likely a hot start
+		executionType = "warm" // Service already exists, likely a warm start
 	}
 
 	// Update last activity for scaling/idle monitoring
@@ -85,7 +85,7 @@ func processRequest(ctx context.Context, req *types.ExecutionRequest) {
 	result, logs, err := callFunctionPod(ctx, targetURL, req.Args)
 	if err != nil {
 		log.Printf("Error calling function pod %s: %v", req.FunctionID, err)
-		publishErrorResult(ctx, req.RequestID, req.FunctionID, err)
+		publishErrorResult(ctx, req.RequestID, req.FunctionID, err, executionType)
 		return
 	}
 
@@ -140,10 +140,19 @@ func callFunctionPod(ctx context.Context, url string, args map[string]interface{
 }
 
 // publishErrorResult is a helper to publish an error result to Redis.
-func publishErrorResult(ctx context.Context, requestID, funcID string, err error) {
+func publishErrorResult(ctx context.Context, requestID, funcID string, err error, currentExecutionType string) {
+	errorExecutionType := currentExecutionType + "_fail"
+	if currentExecutionType == "cold" {
+		errorExecutionType = "cold_fail"
+	} else if currentExecutionType == "warm" {
+		errorExecutionType = "warm_fail"
+	} else {
+		errorExecutionType = "unknown_fail"
+	}
+
 	executionResult := &types.ExecutionResult{
 		Status:        "error",
-		ExecutionType: "unknown", // or "cold_fail", "hot_fail"
+		ExecutionType: errorExecutionType,
 		Duration:      0,
 		Logs:          fmt.Sprintf("Execution failed for function %s: %v", funcID, err),
 		Result:        fmt.Sprintf("{\"error\": \"%v\"}", err),

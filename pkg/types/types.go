@@ -24,7 +24,7 @@ type ExecutionRequest struct {
 // ExecutionResult is the message published to the result:<requestId> channel
 type ExecutionResult struct {
 	Status        string  `json:"status"`
-	ExecutionType string  `json:"executionType"` // "cold" or "hot"
+	ExecutionType string  `json:"executionType"` // "cold" or "warm"
 	Duration      float64 `json:"duration"`      // in seconds
 	Logs          string  `json:"logs"`
 	Result        string  `json:"result"`        // JSON string
