@@ -63,7 +63,7 @@ func HandleInvoke(c *gin.Context) {
 func ensureK8sResources(c *gin.Context, funcID string, req types.FunctionRequest, bodyBytes []byte) {
 	_, err := k8s.Clientset.CoreV1().Services(config.NAMESPACE).Get(context.TODO(), funcID, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		if err := k8s.CreateK8sResources(funcID, req); err != nil {
+		if err := k8s.CreateK8sResources(funcID, req, false); err != nil {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
