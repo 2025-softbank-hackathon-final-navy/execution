@@ -5,7 +5,7 @@ metadata:
   namespace: default
 spec:
   # 일단 3개로 시작
-  replicas: 3
+  replicas: 2 #2개로 줄임
   selector:
     matchLabels:
       app: execution-server
@@ -30,10 +30,10 @@ spec:
             - containerPort: 80
           resources:
             requests:
-              cpu: "2"
+              cpu: "500m"
               memory: "512Mi"
             limits:
-              cpu: "4"
+              cpu: "2"
               memory: "1Gi"
 ---
 apiVersion: autoscaling/v2
