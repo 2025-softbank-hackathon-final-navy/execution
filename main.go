@@ -4,17 +4,25 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/2025-softbank-hackathon-final-navy/execution/config"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/handlers"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/k8s"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/monitor"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/redis"
+	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/storage"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/worker"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	config.Load()
+
 	if err := k8s.InitKubeClient(); err != nil {
 		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
+	}
+
+	if err := storage.InitS3Client(); err != nil {
+		log.Fatalf("Failed to initialize S3 client: %v", err)
 	}
 
 	redis.InitRedisClient()

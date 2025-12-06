@@ -13,6 +13,7 @@ import (
 	"github.com/2025-softbank-hackathon-final-navy/execution/config"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/k8s"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/redis"
+	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/storage"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,17 +46,30 @@ func processRequest(ctx context.Context, req *types.ExecutionRequest) {
 	startTime := time.Now()
 	executionType := "cold" // Assume cold start initially
 
-	// 1. Ensure K8s resources are ready
-	// Check if service exists to determine if it's a cold start
-	_, err := k8s.Clientset.CoreV1().Services(config.NAMESPACE).Get(ctx, req.FunctionID, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		// Function not deployed yet, fetch metadata from Redis and deploy
-		meta, err := redis.GetFunctionFromRedis(req.FunctionID)
+	// 1. Get function code using cache-aside pattern
+	meta, err := redis.GetFunctionFromRedis(req.FunctionID)
+	if err != nil {
+		log.Printf("Cache miss for function %s: %v. Fetching from S3...", req.FunctionID, err)
+		code, err := storage.DownloadCode(req.FunctionID, req.Runtime)
 		if err != nil {
-			log.Printf("Error getting function metadata for %s from Redis: %v", req.FunctionID, err)
-			publishErrorResult(ctx, req.RequestID, req.FunctionID, err, executionType)
+			log.Printf("Failed to download code for function %s from S3: %v", req.FunctionID, err)
+			publishErrorResult(ctx, req.RequestID, req.FunctionID, err, "unknown")
 			return
 		}
+		log.Printf("Successfully downloaded code for function %s from S3. Populating cache.", req.FunctionID)
+		functionReqForCache := types.FunctionRequest{Name: req.FunctionID, Code: code, Type: req.Runtime, Request: ""}
+		if err := redis.SaveFunctionToRedis(functionReqForCache, req.FunctionID); err != nil {
+			log.Printf("Failed to populate cache for function %s: %v", req.FunctionID, err)
+			// Continue execution even if caching fails
+		}
+		meta = &types.FunctionMetadata{Name: req.FunctionID, Code: code, Type: req.Runtime, Request: ""}
+	} else {
+		log.Printf("Cache hit for function %s", req.FunctionID)
+	}
+
+	// 2. Ensure K8s resources are ready
+	_, err = k8s.Clientset.CoreV1().Services(config.NAMESPACE).Get(ctx, req.FunctionID, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
 		functionReq := types.FunctionRequest{Name: meta.Name, Code: meta.Code, Type: meta.Type, Request: meta.Request}
 		if err := k8s.CreateK8sResources(req.FunctionID, functionReq, req.UseGPU); err != nil {
 			log.Printf("Error creating K8s resources for function %s: %v", req.FunctionID, err)
@@ -80,7 +94,7 @@ func processRequest(ctx context.Context, req *types.ExecutionRequest) {
 	redis.IncRequestAndScale(req.FunctionID)
 	defer redis.DecRequest(req.FunctionID)
 
-	// 2. Proxy request to the function pod
+	// 3. Proxy request to the function pod
 	targetURL := fmt.Sprintf("http://%s.%s.svc.cluster.local:8080", req.FunctionID, config.NAMESPACE)
 	result, logs, err := callFunctionPod(ctx, targetURL, req.Args)
 	if err != nil {
