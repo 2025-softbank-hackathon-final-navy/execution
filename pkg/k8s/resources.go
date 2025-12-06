@@ -18,7 +18,7 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-func CreateK8sResources(name string, req types.FunctionRequest) error {
+func CreateK8sResources(name string, req types.FunctionRequest, useGPU bool) error {
 	ctx := context.TODO()
 	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name}, Data: map[string]string{"user_code.py": req.Code}}
 	_, err := Clientset.CoreV1().ConfigMaps(config.NAMESPACE).Create(ctx, cm, metav1.CreateOptions{})
@@ -29,7 +29,7 @@ func CreateK8sResources(name string, req types.FunctionRequest) error {
 	memReq := resource.MustParse("128Mi")
 	targetLabel := "small"
 
-	if req.Request == "large-memory" {
+	if req.Request == "large-memory" || useGPU {
 		memReq = resource.MustParse("1Gi")
 		targetLabel = "large"
 	}

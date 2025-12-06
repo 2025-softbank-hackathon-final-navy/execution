@@ -57,7 +57,7 @@ func processRequest(ctx context.Context, req *types.ExecutionRequest) {
 			return
 		}
 		functionReq := types.FunctionRequest{Name: meta.Name, Code: meta.Code, Type: meta.Type, Request: meta.Request}
-		if err := k8s.CreateK8sResources(req.FunctionID, functionReq); err != nil {
+		if err := k8s.CreateK8sResources(req.FunctionID, functionReq, req.UseGPU); err != nil {
 			log.Printf("Error creating K8s resources for function %s: %v", req.FunctionID, err)
 			publishErrorResult(ctx, req.RequestID, req.FunctionID, err, executionType)
 			return

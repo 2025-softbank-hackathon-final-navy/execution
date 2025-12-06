@@ -19,6 +19,7 @@ type ExecutionRequest struct {
 	RequestID  string                 `json:"requestId"`
 	FunctionID string                 `json:"functionId"`
 	Args       map[string]interface{} `json:"args"`
+	UseGPU     bool                   `json:"use_gpu"`
 }
 
 // ExecutionResult is the message published to the result:<requestId> channel
