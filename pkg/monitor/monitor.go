@@ -16,11 +16,11 @@ import (
 func StartIdleMonitor() {
 	ticker := time.NewTicker(config.MONITOR_PERIOD)
 	ctx := context.Background()
-	var scaleUpCalls = make(map[string]int32)
 	redisInterface := redis.NewRedisWrapper(redis.Rdb)
 	for range ticker.C {
 		log.Printf("IDLE Monitor Start...")
 		now := time.Now()
+		var scaleUpCalls = make(map[string]int32)
 
 		iter := redis.Rdb.Scan(ctx, 0, "last_active:*", 0).Iterator()
 		for iter.Next(ctx) {
@@ -70,19 +70,19 @@ func StartIdleMonitor() {
 			for funcID, desiredReplicas := range plan {
 				if desiredReplicas > 0 {
 					eplb.ScaleUpDeployment(funcID, int32(desiredReplicas))
+					scaleUpCalls[funcID] = int32(desiredReplicas)
 				}
-			}
-			// Verify scale up calls
-			if len(scaleUpCalls) == 0 {
-				log.Fatal("Expected scale up calls")
 			}
 			log.Fatalf("Integration test: %d functions with QPS, %d with EMA, %d in plan, %d scaled up",
 				len(qpsMap), len(emaQpsMap), len(plan), len(scaleUpCalls))
-			for funcID, replicas := range scaleUpCalls {
-				k8s.ScaleUpDeployment(funcID, replicas)
-				log.Fatalf("  %s: %d replicas", funcID, replicas)
-			}
 		}
-
+		// Verify scale up calls
+		if len(scaleUpCalls) == 0 {
+			log.Fatal("Expected scale up calls")
+		}
+		for funcID, replicas := range scaleUpCalls {
+			k8s.ScaleUpDeployment(funcID, replicas)
+			log.Fatalf("  %s: %d replicas", funcID, replicas)
+		}
 	}
 }

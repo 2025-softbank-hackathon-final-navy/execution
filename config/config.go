@@ -13,7 +13,7 @@ const (
 	NAMESPACE           = "default"
 	REDIS_ADDR          = "redis-service:6379"
 	CONCURRENCY_PER_POD = 5
-	MAX_REPLICAS        = 10
+	MAX_REPLICAS        = 30
 )
 
 // AppConfig holds the application configuration, loaded from environment variables.
