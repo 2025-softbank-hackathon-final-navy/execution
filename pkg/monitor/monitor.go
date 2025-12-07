@@ -19,6 +19,7 @@ func StartIdleMonitor() {
 	var scaleUpCalls = make(map[string]int32)
 	redisInterface := redis.NewRedisWrapper(redis.Rdb)
 	for range ticker.C {
+		log.Printf("IDLE Monitor Start...")
 		now := time.Now()
 
 		iter := redis.Rdb.Scan(ctx, 0, "last_active:*", 0).Iterator()
