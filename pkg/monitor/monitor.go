@@ -54,17 +54,17 @@ func StartIdleMonitor() {
 			// 1. Collect QPS
 			qpsMap := redis.CollectQPS(ctx, redisInterface, 60)
 			if len(qpsMap) == 0 {
-				log.Fatal("Expected non-empty QPS map")
+				log.Print("Expected non-empty QPS map")
 			}
 			// 2. Update EMA
 			emaQpsMap := redis.UpdateEMA(ctx, redisInterface, qpsMap, 0.3)
 			if len(emaQpsMap) == 0 {
-				log.Fatal("Expected non-empty EMA map")
+				log.Print("Expected non-empty EMA map")
 			}
 			// 3. Compute plan
 			plan := eplb.ComputeDesiredReplicas(emaQpsMap, 20, 1.0, true)
 			if len(plan) == 0 {
-				log.Fatal("Expected non-empty plan")
+				log.Print("Expected non-empty plan")
 			}
 			// 4. Simulate scale up calls
 			for funcID, desiredReplicas := range plan {
@@ -73,16 +73,16 @@ func StartIdleMonitor() {
 					scaleUpCalls[funcID] = int32(desiredReplicas)
 				}
 			}
-			log.Fatalf("Integration test: %d functions with QPS, %d with EMA, %d in plan, %d scaled up",
+			log.Printf("Integration test: %d functions with QPS, %d with EMA, %d in plan, %d scaled up",
 				len(qpsMap), len(emaQpsMap), len(plan), len(scaleUpCalls))
 		}
 		// Verify scale up calls
 		if len(scaleUpCalls) == 0 {
-			log.Fatal("Expected scale up calls")
+			log.Print("Expected scale up calls")
 		}
 		for funcID, replicas := range scaleUpCalls {
 			k8s.ScaleUpDeployment(funcID, replicas)
-			log.Fatalf("  %s: %d replicas", funcID, replicas)
+			log.Printf("  %s: %d replicas", funcID, replicas)
 		}
 	}
 }
