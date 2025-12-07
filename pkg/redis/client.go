@@ -163,6 +163,9 @@ func CollectQPS(ctx context.Context, redis RedisClient, windowSeconds int) map[s
 
 	return qpsMap
 }
+func GetFunctionStats(ctx context.Context, redis RedisClient, funcID string) (*eplb.FunctionStats, error) {
+	return getFunctionStats(ctx, redis, funcID)
+}
 
 // getFunctionStats retrieves function statistics from Redis
 func getFunctionStats(ctx context.Context, redis RedisClient, funcID string) (*eplb.FunctionStats, error) {

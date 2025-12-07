@@ -15,8 +15,8 @@ import (
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/redis"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/storage"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/types"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // StartWorker initializes and starts the Redis queue worker.
@@ -102,13 +102,16 @@ func processRequest(ctx context.Context, req *types.ExecutionRequest) {
 		publishErrorResult(ctx, req.RequestID, req.FunctionID, err, executionType)
 		return
 	}
+	wrapper := redis.NewRedisWrapper(redis.Rdb)
 
+	stat, _ := redis.GetFunctionStats(ctx, wrapper, req.FunctionID)
 	duration := time.Since(startTime).Seconds()
 	executionResult := &types.ExecutionResult{
 		Status:        "success",
 		ExecutionType: executionType,
 		Duration:      duration,
 		Logs:          logs,
+		Qps:           stat.QPS,
 		Result:        result,
 	}
 
@@ -164,10 +167,14 @@ func publishErrorResult(ctx context.Context, requestID, funcID string, err error
 		errorExecutionType = "unknown_fail"
 	}
 
+	wrapper := redis.NewRedisWrapper(redis.Rdb)
+
+	stat, _ := redis.GetFunctionStats(ctx, wrapper, funcID)
 	executionResult := &types.ExecutionResult{
 		Status:        "error",
 		ExecutionType: errorExecutionType,
 		Duration:      0,
+		Qps:           stat.QPS,
 		Logs:          fmt.Sprintf("Execution failed for function %s: %v", funcID, err),
 		Result:        fmt.Sprintf("{\"error\": \"%v\"}", err),
 	}

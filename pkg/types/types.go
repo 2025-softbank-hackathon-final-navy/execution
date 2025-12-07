@@ -29,5 +29,6 @@ type ExecutionResult struct {
 	ExecutionType string  `json:"executionType"` // "cold" or "warm"
 	Duration      float64 `json:"duration"`      // in seconds
 	Logs          string  `json:"logs"`
+	Qps           float64  `json:"qps"`
 	Result        string  `json:"result"`        // JSON string
 }
