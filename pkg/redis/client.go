@@ -186,7 +186,7 @@ func getFunctionStats(ctx context.Context, redis RedisClient, funcID string) (*e
 	}
 
 	if lastExecStr, ok := statsMap["last_executed"]; ok {
-		lastExec, err := time.Parse(time.RFC3339Nano, lastExecStr)
+		lastExec, err := time.Parse(time.RFC3339, lastExecStr)
 		if err != nil {
 			lastExec, err = time.Parse(time.RFC3339, lastExecStr)
 		}

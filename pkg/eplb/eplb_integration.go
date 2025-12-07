@@ -23,22 +23,22 @@ import (
 // ============================================================
 
 const (
-	DefaultEMAlpha        = 0.3
-	DefaultIntervalSec   = 60
-	DefaultMaxReplicas   = 20
-	DefaultMinReplicas   = 0
+	DefaultEMAlpha           = 0.3
+	DefaultIntervalSec       = 60
+	DefaultMaxReplicas       = 20
+	DefaultMinReplicas       = 0
 	DefaultInactiveThreshold = 5 * 60 // 5분 (초 단위) - last_executed가 이 시간 이상 지나면 비활성
-	DefaultMinQPS        = 0.01       // 최소 QPS - 이보다 낮으면 비활성으로 간주
+	DefaultMinQPS            = 0.01   // 최소 QPS - 이보다 낮으면 비활성으로 간주
 )
 
 // PrewarmConfig holds prewarm configuration
 type PrewarmConfig struct {
-	Mode          string  // "off" | "on" | "experiment"
-	Alpha         float64 // EMA coefficient (used when UseAdaptiveEMA=false)
-	Interval      int     // Loop interval in seconds
-	Replicas      int     // Total replicas
+	Mode           string  // "off" | "on" | "experiment"
+	Alpha          float64 // EMA coefficient (used when UseAdaptiveEMA=false)
+	Interval       int     // Loop interval in seconds
+	Replicas       int     // Total replicas
 	Aggressiveness float64 // Global aggressiveness
-	
+
 	// Adaptive EMA settings (Linear Regression 기반)
 	UseAdaptiveEMA bool    // true: Linear Regression으로 α 동적 계산, false: 고정 α 사용
 	MinAlpha       float64 // Adaptive EMA 최소 α (UseAdaptiveEMA=true일 때 사용)
@@ -137,11 +137,12 @@ func ComputeDesiredReplicas(
 
 // ScaleUpDeployment scales up a deployment for a function
 // This function should be provided by the execution server
-// 
+//
 // NOTE: This is a function variable that must be set by the execution server.
 // In production, import from your execution server's k8s package and assign:
-//   import "your-execution-server/pkg/k8s"
-//   ScaleUpDeployment = k8s.ScaleUpDeployment
+//
+//	import "your-execution-server/pkg/k8s"
+//	ScaleUpDeployment = k8s.ScaleUpDeployment
 //
 // For testing, a mock implementation is provided in eplb_integration_test.go
 // which will set this variable during test initialization.
@@ -180,7 +181,7 @@ func RunPrewarmScheduler(ctx context.Context, config PrewarmConfig, redisClient 
 				// Linear Regression 기반 Adaptive EMA
 				// EMA 히스토리를 기반으로 α를 동적으로 계산
 				emaQpsMap = UpdateEMAAdaptive(redisClient, qpsMap, config.MinAlpha, config.MaxAlpha)
-				log.Printf("[Prewarm] Using Adaptive EMA (minAlpha=%.3f, maxAlpha=%.3f)", 
+				log.Printf("[Prewarm] Using Adaptive EMA (minAlpha=%.3f, maxAlpha=%.3f)",
 					config.MinAlpha, config.MaxAlpha)
 			} else {
 				// 고정 α EMA
@@ -216,11 +217,11 @@ func RunPrewarmScheduler(ctx context.Context, config PrewarmConfig, redisClient 
 					} else {
 						log.Printf("[Prewarm] WARNING: ScaleUpDeployment not set - skipping scale for %s", funcID)
 					}
-					
+
 					// 5. 계획(Desired Replicas) 저장
 					planKey := fmt.Sprintf("plan:function:%s:desired_replicas", funcID)
 					redisClient.SetEx(planKey, fmt.Sprintf("%d", desiredReplicas), 300)
-					
+
 					// 6. 계획 히스토리 저장 (1시간 = 60분)
 					planHistoryKey := fmt.Sprintf("plan:function:%s:desired_replicas:history", funcID)
 					timestamp := time.Now().Unix()
@@ -249,12 +250,12 @@ type RedisClient interface {
 	Expire(key string, seconds int) error
 	Scan(match string) ([]string, error)
 	HGetAll(key string) (map[string]string, error) // Hash 전체 조회
-	
+
 	// List operations for time-series data (1 hour history = 60 entries)
-	LPush(key string, value string) error        // 리스트 앞에 추가
-	LTrim(key string, start, stop int) error    // 리스트 크기 제한 (0, 59 = 최대 60개)
+	LPush(key string, value string) error                 // 리스트 앞에 추가
+	LTrim(key string, start, stop int) error              // 리스트 크기 제한 (0, 59 = 최대 60개)
 	LRange(key string, start, stop int) ([]string, error) // 리스트 조회
-	LLen(key string) (int64, error)            // 리스트 길이
+	LLen(key string) (int64, error)                       // 리스트 길이
 }
 
 // FunctionStats represents function statistics from Redis
@@ -293,7 +294,7 @@ func CollectQPS(redis RedisClient, windowSeconds int) map[string]float64 {
 
 			// Check if function is active
 			if !stats.IsActive {
-				log.Printf("[Prewarm] Skipping inactive function: %s (last_executed: %v)", 
+				log.Printf("[Prewarm] Skipping inactive function: %s (last_executed: %v)",
 					funcID, stats.LastExecuted)
 				continue
 			}
@@ -343,7 +344,7 @@ func getFunctionStats(redis RedisClient, funcID string) (*FunctionStats, error) 
 	// Parse last_executed
 	if lastExecStr, ok := statsMap["last_executed"]; ok {
 		// Parse RFC3339 format: "2025-12-06T16:25:00.703605592"
-		lastExec, err := time.Parse(time.RFC3339Nano, lastExecStr)
+		lastExec, err := time.Parse(time.RFC3339, lastExecStr)
 		if err != nil {
 			// Try without nanoseconds
 			lastExec, err = time.Parse(time.RFC3339, lastExecStr)
@@ -356,7 +357,7 @@ func getFunctionStats(redis RedisClient, funcID string) (*FunctionStats, error) 
 			}
 		}
 		stats.LastExecuted = lastExec
-		
+
 		// Check if function is active (last_executed within threshold)
 		now := time.Now()
 		age := now.Sub(lastExec)
@@ -397,7 +398,7 @@ func UpdateEMA(redis RedisClient, qpsMap map[string]float64, alpha float64) map[
 	for funcID, currentQps := range qpsMap {
 		// Filter 1: Skip if QPS is too low
 		if currentQps < DefaultMinQPS {
-			log.Printf("[Prewarm] Skipping %s: QPS too low (%.4f < %.4f)", 
+			log.Printf("[Prewarm] Skipping %s: QPS too low (%.4f < %.4f)",
 				funcID, currentQps, DefaultMinQPS)
 			continue
 		}
@@ -405,7 +406,7 @@ func UpdateEMA(redis RedisClient, qpsMap map[string]float64, alpha float64) map[
 		// Filter 2: Check last_executed if available
 		stats, err := getFunctionStats(redis, funcID)
 		if err == nil && !stats.IsActive {
-			log.Printf("[Prewarm] Skipping %s: inactive (last_executed: %v, threshold: %ds)", 
+			log.Printf("[Prewarm] Skipping %s: inactive (last_executed: %v, threshold: %ds)",
 				funcID, stats.LastExecuted, DefaultInactiveThreshold)
 			continue
 		}
@@ -429,24 +430,24 @@ func UpdateEMA(redis RedisClient, qpsMap map[string]float64, alpha float64) map[
 		if newEma >= DefaultMinQPS {
 			// 1. 최신 값 저장 (빠른 조회용)
 			redis.Set(emaKey, fmt.Sprintf("%f", newEma))
-			
+
 			// 2. 시계열 히스토리 저장 (1시간 = 60분) - 개별 히스토리 (하위 호환성)
 			emaHistoryKey := fmt.Sprintf("state:function:%s:ema_qps:history", funcID)
 			timestamp := time.Now().Unix()
 			historyValue := fmt.Sprintf("%d:%.4f", timestamp, newEma) // "timestamp:value" 형식
-			
+
 			// 리스트 앞에 추가 (최신이 앞에)
 			redis.LPush(emaHistoryKey, historyValue)
-			
+
 			// 최대 60개만 유지 (0~59 인덱스 = 60개)
 			redis.LTrim(emaHistoryKey, 0, 59)
-			
+
 			// TTL 설정 (1시간 + 여유분 = 4000초)
 			redis.Expire(emaHistoryKey, 4000)
-			
+
 			emaQpsMap[funcID] = newEma
 		} else {
-			log.Printf("[Prewarm] Skipping %s: EMA too low (%.4f < %.4f)", 
+			log.Printf("[Prewarm] Skipping %s: EMA too low (%.4f < %.4f)",
 				funcID, newEma, DefaultMinQPS)
 		}
 	}
@@ -464,7 +465,7 @@ func UpdateEMAAdaptive(redis RedisClient, qpsMap map[string]float64, minAlpha, m
 	for funcID, currentQps := range qpsMap {
 		// Filter 1: Check QPS threshold
 		if currentQps < DefaultMinQPS {
-			log.Printf("[Prewarm] Skipping %s: QPS too low (%.4f < %.4f)", 
+			log.Printf("[Prewarm] Skipping %s: QPS too low (%.4f < %.4f)",
 				funcID, currentQps, DefaultMinQPS)
 			continue
 		}
@@ -472,7 +473,7 @@ func UpdateEMAAdaptive(redis RedisClient, qpsMap map[string]float64, minAlpha, m
 		// Filter 2: Check last_executed if available
 		stats, err := getFunctionStats(redis, funcID)
 		if err == nil && !stats.IsActive {
-			log.Printf("[Prewarm] Skipping %s: inactive (last_executed: %v, threshold: %ds)", 
+			log.Printf("[Prewarm] Skipping %s: inactive (last_executed: %v, threshold: %ds)",
 				funcID, stats.LastExecuted, DefaultInactiveThreshold)
 			continue
 		}
@@ -504,7 +505,7 @@ func UpdateEMAAdaptive(redis RedisClient, qpsMap map[string]float64, minAlpha, m
 			reversedHistory[i] = history[len(history)-1-i]
 		}
 		fullHistory := append(reversedHistory, currentQps)
-		
+
 		adaptiveAlpha := ComputeAdaptiveAlpha(fullHistory, minAlpha, maxAlpha)
 
 		// Update EMA with adaptive alpha
@@ -522,19 +523,19 @@ func UpdateEMAAdaptive(redis RedisClient, qpsMap map[string]float64, minAlpha, m
 		if newEMA >= DefaultMinQPS {
 			// 1. 최신 값 저장 (빠른 조회용)
 			redis.Set(emaKey, fmt.Sprintf("%f", newEMA))
-			
+
 			// 2. 시계열 히스토리 저장 (1시간 = 60분)
 			emaHistoryKey := fmt.Sprintf("state:function:%s:ema_qps:history", funcID)
 			timestamp := time.Now().Unix()
 			historyValue := fmt.Sprintf("%d:%.4f", timestamp, newEMA)
-			
+
 			redis.LPush(emaHistoryKey, historyValue)
 			redis.LTrim(emaHistoryKey, 0, 59)
 			redis.Expire(emaHistoryKey, 4000)
-			
+
 			emaQpsMap[funcID] = newEMA
 		} else {
-			log.Printf("[Prewarm] Skipping %s: EMA too low (%.4f < %.4f)", 
+			log.Printf("[Prewarm] Skipping %s: EMA too low (%.4f < %.4f)",
 				funcID, newEMA, DefaultMinQPS)
 		}
 	}
@@ -569,7 +570,7 @@ func GetEMAHistory(redis RedisClient, funcID string, maxMinutes int) ([]EMAHisto
 	}
 
 	historyKey := fmt.Sprintf("state:function:%s:ema_qps:history", funcID)
-	
+
 	// 최근 N개 조회 (0부터 maxMinutes-1까지)
 	values, err := redis.LRange(historyKey, 0, maxMinutes-1)
 	if err != nil {
@@ -614,7 +615,7 @@ func GetPlanHistory(redis RedisClient, funcID string, maxMinutes int) ([]PlanHis
 	}
 
 	historyKey := fmt.Sprintf("plan:function:%s:desired_replicas:history", funcID)
-	
+
 	// 최근 N개 조회 (0부터 maxMinutes-1까지)
 	values, err := redis.LRange(historyKey, 0, maxMinutes-1)
 	if err != nil {
@@ -706,16 +707,16 @@ func SaveCurrentReplicas(redis RedisClient, funcID string, currentReplicas int) 
 	// 최신 값 저장
 	currentKey := fmt.Sprintf("state:function:%s:current_replicas", funcID)
 	redis.Set(currentKey, fmt.Sprintf("%d", currentReplicas))
-	
+
 	// 히스토리 저장 (1시간 = 60분)
 	historyKey := fmt.Sprintf("state:function:%s:current_replicas:history", funcID)
 	timestamp := time.Now().Unix()
 	historyValue := fmt.Sprintf("%d:%d", timestamp, currentReplicas)
-	
+
 	redis.LPush(historyKey, historyValue)
 	redis.LTrim(historyKey, 0, 59)
 	redis.Expire(historyKey, 4000)
-	
+
 	return nil
 }
 
