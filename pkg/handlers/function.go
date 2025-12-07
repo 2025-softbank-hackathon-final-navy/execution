@@ -11,6 +11,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 
+	"context"
+
 	"github.com/2025-softbank-hackathon-final-navy/execution/config"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/k8s"
 	"github.com/2025-softbank-hackathon-final-navy/execution/pkg/redis"
@@ -18,7 +20,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"context"
 )
 
 func HandleDeployAndRun(c *gin.Context) {
@@ -32,6 +33,12 @@ func HandleDeployAndRun(c *gin.Context) {
 	} else {
 		hash := sha256.Sum256([]byte(req.Code))
 		funcID = "func-" + hex.EncodeToString(hash[:])[:10]
+	}
+
+	// remove old function
+	_, err := k8s.Clientset.CoreV1().Services(config.NAMESPACE).Get(context.TODO(), funcID, metav1.GetOptions{})
+	if !errors.IsNotFound(err) {
+		k8s.DeleteK8sResources(funcID)
 	}
 
 	redis.SaveFunctionToRedis(req, funcID)
