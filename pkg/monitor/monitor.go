@@ -39,16 +39,13 @@ func StartIdleMonitor() {
 				continue
 			}
 
-			// Set function stats (all active)
-			lastExec := now.Add(-time.Duration(2) * time.Minute) // 0-2 minutes ago (all active)
-
 			// eplb_redis := eplb.NewMockRedisClient()
 			qps := eplb.GenerateRandomQPS(0.5, 20)
 			totalRequests := int64(rand.Intn(1000) + 100)
 
 			redis.SetFunctionStatsKey(ctx, redisInterface, funcID, map[string]string{
 				"total_requests": fmt.Sprintf("%d", totalRequests),
-				"last_executed":  lastExec.Format(time.RFC3339Nano),
+				"last_executed":  lastTime.Format(time.RFC3339),
 				"total_latency":  "100.5",
 				"qps":            fmt.Sprintf("%.10f", qps),
 			})
